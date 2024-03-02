@@ -10,6 +10,95 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(require("morgan")("dev"));
 
+// Routes
+
+// Get all categories from categories and send back the response from your query
+app.get("/api/categories", async (req, res, next) => {
+    try {
+        const SQL = `
+        SELECT * FROM categories;
+        `;
+
+        const response = await client.query(SQL);
+        res.send(response.rows);
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+});
+
+// Get all notes from notes, and send the response by created_at time in descending order
+app.get("/api/notes", async (req, res, next) => {
+    try {
+        const SQL = `
+       SELECT * FROM notes ORDER BY created_at DESC;
+        `;
+
+        const response = await client.query(SQL);
+        res.send(response.rows);
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+});
+
+// Create a note, return the created note, and send it as a response
+app.post("/api/notes", async (req, res, next) => {
+    try {
+        const SQL = `
+        INSERT INTO notes(txt, category_id)
+        VALUES($1, $2)
+        RETURNING *
+        `;
+
+        const response = await client.query(SQL, [
+            req.body.txt,
+            req.body.category_id,
+        ]);
+
+        res.send(response.rows[0]);
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+});
+// Update a note, using a given id, return the updated note, and send it as a response
+app.put("/api/notes/:id", async (req, res, next) => {
+    try {
+        const SQL = `
+        UPDATE notes
+        SET txt=$1, ranking=$2, category_id=$3, updated_at= now()
+        WHERE id=$4 RETURNING *
+        `;
+
+        const response = await client.query(SQL, [
+            req.body.txt,
+            req.body.ranking,
+            req.body.category_id,
+            req.params.id,
+        ]);
+        res.send(response.rows[0]);
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+});
+// Delete a note, using a given id, and send only the status it was successful as a response
+app.delete("/api/notes/:id", async (req, res, next) => {
+    try {
+        const SQL = `
+       DELETE FROM notes
+       WHERE id = $1
+        `;
+        const response = await client.query(SQL, [req.params.id]);
+        res.sendStatus(204);
+    } catch (error) {
+        console.log(error);
+        next(error);
+    }
+});
+
+// Function to connect and start Postgres Database
 async function init() {
     try {
         await client.connect();
@@ -42,10 +131,8 @@ async function init() {
        ('Express'),
        ('Shopping');
        
-       INSERT INTO notes(txt, ranking, category_id) VALUES
-       ('Learn express', 5, (SELECT id FROM categories WHERE name = 'Express'));
-       
        INSERT INTO notes(txt, ranking,category_id) VALUES
+       ('Learn express', 5, (SELECT id FROM categories WHERE name = 'Express')),
        ('learn about foreign keys', 4, (SELECT id FROM categories WHERE name='SQL')),
        ('write SQL queries', 4, (SELECT id FROM categories WHERE name='SQL')),
        ('learn about foreign keys', 4, (SELECT id FROM categories WHERE name='SQL')),
